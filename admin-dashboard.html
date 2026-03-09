@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CabEase — Admin Dashboard</title>
+    <meta name="description" content="CabEase Admin Dashboard — manage all bookings" />
+    <link rel="stylesheet" href="style.css" />
+</head>
+
+<body>
+    <div class="app-shell">
+        <aside id="sidebar"></aside>
+        <div class="main-content">
+            <header id="topbar"></header>
+            <main class="page-body">
+
+                <!-- KPI Cards -->
+                <div class="kpi-grid" id="kpiGrid"></div>
+
+                <!-- Bookings Table -->
+                <div class="section-header">
+                    <h2 class="section-title">All Bookings</h2>
+                    <div style="display:flex;gap:10px;align-items:center;">
+                        <select id="filterStatus" class="btn btn-outline"
+                            style="padding:8px 14px;font-size:.82rem;cursor:pointer;">
+                            <option value="">All Statuses</option>
+                            <option value="Pending">Pending</option>
+                            <option value="Assigned">Assigned</option>
+                            <option value="Completed">Completed</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="table-wrapper">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>Customer</th>
+                                    <th>Phone</th>
+                                    <th>Pickup</th>
+                                    <th>Drop</th>
+                                    <th>Date</th>
+                                    <th>Cab No.</th>
+                                    <th>Driver</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="bookingsBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+            </main>
+        </div>
+    </div>
+
+    <!-- Edit Booking Modal -->
+    <div class="modal-overlay" id="editModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 class="modal-title">✏️ Edit Booking</h3>
+                <button class="modal-close" onclick="closeModal()">✕</button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="editId" />
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Customer Name</label>
+                        <input type="text" id="editCustomer" readonly style="background:#f8fafc;" />
+                    </div>
+                    <div class="form-group">
+                        <label>Booking Date</label>
+                        <input type="date" id="editDate" />
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Pickup Location</label>
+                        <input type="text" id="editPickup" />
+                    </div>
+                    <div class="form-group">
+                        <label>Drop Location</label>
+                        <input type="text" id="editDrop" />
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Assign Cab</label>
+                        <select id="editCab">
+                            <option value="">— Select Cab —</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Assign Driver</label>
+                        <select id="editDriver">
+                            <option value="">— Select Driver —</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Status</label>
+                    <select id="editStatus">
+                        <option value="Pending">Pending</option>
+                        <option value="Assigned">Assigned</option>
+                        <option value="Completed">Completed</option>
+                    </select>
+                </div>
+                <div id="modalAlert" class="alert" style="display:none;"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline" onclick="closeModal()">Cancel</button>
+                <button class="btn btn-primary" onclick="saveEdit()">💾 Save Changes</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="db.js"></script>
+    <script src="auth.js"></script>
+    <script src="sidebar.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            Auth.requireAuth('admin');
+            Sidebar.render();
+            Sidebar.renderTopbar('Dashboard');
+
+            renderKPIs();
+            renderTable();
+
+            document.getElementById('filterStatus').addEventListener('change', renderTable);
+        });
+
+        function renderKPIs() {
+            const bookings = DB.getAll('bookings');
+            const payments = DB.getAll('payments');
+            const revenue = payments.filter(p => p.payment_status === 'Paid').reduce((s, p) => s + Number(p.amount || 0), 0);
+
+            document.getElementById('kpiGrid').innerHTML = `
+        <div class="kpi-card">
+          <div class="kpi-icon purple">📋</div>
+          <div>
+            <div class="kpi-value">${bookings.length}</div>
+            <div class="kpi-label">Total Bookings</div>
+          </div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-icon orange">⏳</div>
+          <div>
+            <div class="kpi-value">${bookings.filter(b => b.status === 'Pending').length}</div>
+            <div class="kpi-label">Pending</div>
+          </div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-icon green">✅</div>
+          <div>
+            <div class="kpi-value">${bookings.filter(b => b.status === 'Completed').length}</div>
+            <div class="kpi-label">Completed</div>
+          </div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-icon blue">💰</div>
+          <div>
+            <div class="kpi-value">₹${revenue.toLocaleString('en-IN')}</div>
+            <div class="kpi-label">Revenue Collected</div>
+          </div>
+        </div>
+      `;
+        }
+
+        function renderTable() {
+            const filter = document.getElementById('filterStatus').value;
+            let bookings = DB.getAll('bookings');
+            if (filter) bookings = bookings.filter(b => b.status === filter);
+
+            const statusClass = { Pending: 'pending', Assigned: 'assigned', Completed: 'completed' };
+            const tbody = document.getElementById('bookingsBody');
+
+            if (!bookings.length) {
+                tbody.innerHTML = '<tr class="empty-row"><td colspan="10">No bookings found.</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = bookings.map((b, i) => `
+        <tr>
+          <td class="text-muted text-sm">${i + 1}</td>
+          <td class="fw-600">${b.customer_name}</td>
+          <td class="text-muted">${b.phone}</td>
+          <td style="max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${b.pickup_location}">${b.pickup_location}</td>
+          <td style="max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${b.drop_location}">${b.drop_location}</td>
+          <td>${b.booking_date}</td>
+          <td>${b.cab_number || '<span class="text-muted">—</span>'}</td>
+          <td>${b.driver_name || '<span class="text-muted">—</span>'}</td>
+          <td><span class="badge badge-${statusClass[b.status] || 'pending'}">${b.status}</span></td>
+          <td>
+            <button class="btn btn-sm btn-outline" onclick="openEdit('${b.id}')">✏️ Edit</button>
+          </td>
+        </tr>
+      `).join('');
+        }
+
+        function openEdit(id) {
+            const b = DB.getById('bookings', id);
+            if (!b) return;
+
+            document.getElementById('editId').value = b.id;
+            document.getElementById('editCustomer').value = b.customer_name;
+            document.getElementById('editDate').value = b.booking_date;
+            document.getElementById('editPickup').value = b.pickup_location;
+            document.getElementById('editDrop').value = b.drop_location;
+            document.getElementById('editStatus').value = b.status;
+
+            // Populate cabs
+            const cabs = DB.getAll('cabs');
+            document.getElementById('editCab').innerHTML =
+                '<option value="">— Select Cab —</option>' +
+                cabs.map(c => `<option value="${c.cab_number}" ${c.cab_number === b.cab_number ? 'selected' : ''}>${c.cab_number} (${c.cab_type})</option>`).join('');
+
+            // Populate drivers
+            const drivers = DB.getAll('drivers');
+            document.getElementById('editDriver').innerHTML =
+                '<option value="">— Select Driver —</option>' +
+                drivers.map(d => `<option value="${d.driver_name}" ${d.driver_name === b.driver_name ? 'selected' : ''}>${d.driver_name}</option>`).join('');
+
+            document.getElementById('modalAlert').style.display = 'none';
+            document.getElementById('editModal').classList.add('open');
+        }
+
+        function closeModal() {
+            document.getElementById('editModal').classList.remove('open');
+        }
+
+        function saveEdit() {
+            const id = document.getElementById('editId').value;
+            const pickup = document.getElementById('editPickup').value.trim();
+            const drop = document.getElementById('editDrop').value.trim();
+            const date = document.getElementById('editDate').value;
+            const cab = document.getElementById('editCab').value;
+            const driver = document.getElementById('editDriver').value;
+            const status = document.getElementById('editStatus').value;
+
+            if (!pickup || !drop || !date) {
+                const alertEl = document.getElementById('modalAlert');
+                alertEl.className = 'alert alert-danger';
+                alertEl.textContent = 'Pickup, Drop, and Date are required.';
+                alertEl.style.display = 'flex';
+                return;
+            }
+
+            DB.update('bookings', id, {
+                pickup_location: pickup,
+                drop_location: drop,
+                booking_date: date,
+                cab_number: cab,
+                driver_name: driver,
+                status
+            });
+
+            closeModal();
+            renderKPIs();
+            renderTable();
+        }
+
+        // Close modal on overlay click
+        document.getElementById('editModal').addEventListener('click', (e) => {
+            if (e.target === e.currentTarget) closeModal();
+        });
+    </script>
+</body>
+
+</html>

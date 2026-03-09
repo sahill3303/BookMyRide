@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CabEase — Book a Cab</title>
+    <meta name="description" content="Book your ride with CabEase" />
+    <link rel="stylesheet" href="style.css" />
+    <style>
+        .booking-layout {
+            display: grid;
+            grid-template-columns: 1fr 1.05fr;
+            gap: 22px;
+            align-items: start;
+        }
+
+        .map-panel {
+            position: sticky;
+            top: 88px;
+        }
+
+        .map-frame {
+            width: 100%;
+            height: 420px;
+            border: none;
+            border-radius: 14px;
+            display: block;
+        }
+
+        .fare-estimate {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: linear-gradient(135deg, #080e1a, #0d2015);
+            color: #fff;
+            border-radius: 12px;
+            padding: 16px 20px;
+            margin-top: 14px;
+        }
+
+        .fare-label {
+            font-size: .78rem;
+            color: #8492a6;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: .5px;
+        }
+
+        .fare-value {
+            font-size: 1.5rem;
+            font-weight: 900;
+            color: #10b981;
+        }
+
+        .fare-note {
+            font-size: .72rem;
+            color: #8492a6;
+            margin-top: 2px;
+        }
+
+        .live-map-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: .74rem;
+            font-weight: 700;
+            color: #10b981;
+            background: rgba(16, 185, 129, .1);
+            padding: 5px 12px;
+            border-radius: 20px;
+            border: 1px solid rgba(16, 185, 129, .25);
+            margin-bottom: 10px;
+        }
+
+        .cab-type-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+        }
+
+        .cab-type-option {
+            border: 2px solid var(--border);
+            border-radius: 10px;
+            padding: 12px 8px;
+            text-align: center;
+            cursor: pointer;
+            transition: var(--transition);
+            background: var(--card-bg);
+        }
+
+        .cab-type-option:hover {
+            border-color: var(--primary);
+            background: var(--primary-light);
+        }
+
+        .cab-type-option.selected {
+            border-color: var(--primary);
+            background: var(--primary-light);
+        }
+
+        .cab-type-option input {
+            display: none;
+        }
+
+        .cab-type-icon {
+            font-size: 1.5rem;
+            display: block;
+            margin-bottom: 4px;
+        }
+
+        .cab-type-name {
+            font-size: .8rem;
+            font-weight: 700;
+            color: var(--text);
+        }
+
+        .cab-type-price {
+            font-size: .7rem;
+            color: var(--text-muted);
+        }
+    </style>
+</head>
+
+<body>
+    <div class="app-shell">
+        <aside id="sidebar"></aside>
+        <div class="main-content">
+            <header id="topbar"></header>
+            <main class="page-body">
+
+                <div class="section-header mb-20">
+                    <h2 class="section-title">🚖 Book a Cab</h2>
+                    <span class="info-strip green">✅ Real-time booking — instant confirmation</span>
+                </div>
+
+                <div class="booking-layout">
+
+                    <!-- LEFT: Booking Form -->
+                    <div>
+                        <div class="card" style="margin-bottom:16px;">
+                            <div class="card-header">
+                                <span class="card-title">📍 Ride Details</span>
+                                <span class="text-sm text-muted">All fields required</span>
+                            </div>
+                            <div class="card-body">
+                                <div id="alertBox" class="alert" style="display:none;"></div>
+                                <form id="bookingForm" novalidate>
+
+                                    <!-- Customer info (readonly) -->
+                                    <div class="form-row">
+                                        <div class="form-group">
+                                            <label>Your Name</label>
+                                            <input type="text" id="customer_name" readonly />
+                                        </div>
+                                        <div class="form-group">
+                                            <label>Phone Number</label>
+                                            <input type="text" id="phone" readonly />
+                                        </div>
+                                    </div>
+
+                                    <!-- Locations -->
+                                    <div class="form-group">
+                                        <label for="pickup_location">🟢 Pickup Location</label>
+                                        <input type="text" id="pickup_location" placeholder="e.g. MG Road, Bangalore"
+                                            required />
+                                    </div>
+
+                                    <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
+                                        <div style="flex:1;height:1px;background:var(--border);"></div>
+                                        <span
+                                            style="font-size:.75rem;color:var(--text-muted);font-weight:600;">TO</span>
+                                        <div style="flex:1;height:1px;background:var(--border);"></div>
+                                    </div>
+
+                                    <div class="form-group">
+                                        <label for="drop_location">🔴 Drop Location</label>
+                                        <input type="text" id="drop_location" placeholder="e.g. Whitefield, Bangalore"
+                                            required />
+                                    </div>
+
+                                    <div class="form-group">
+                                        <label for="booking_date">📅 Booking Date</label>
+                                        <input type="date" id="booking_date" required />
+                                    </div>
+
+                                    <!-- Cab Type selection -->
+                                    <div class="form-group">
+                                        <label>Select Cab Type</label>
+                                        <div class="cab-type-grid" id="cabTypeGrid">
+                                            <div class="cab-type-option selected" data-type="Mini"
+                                                onclick="selectCabType(this,'Mini')">
+                                                <span class="cab-type-icon">🚗</span>
+                                                <span class="cab-type-name">Mini</span>
+                                                <span class="cab-type-price">From ₹8/km</span>
+                                            </div>
+                                            <div class="cab-type-option" data-type="Sedan"
+                                                onclick="selectCabType(this,'Sedan')">
+                                                <span class="cab-type-icon">🚘</span>
+                                                <span class="cab-type-name">Sedan</span>
+                                                <span class="cab-type-price">From ₹12/km</span>
+                                            </div>
+                                            <div class="cab-type-option" data-type="SUV"
+                                                onclick="selectCabType(this,'SUV')">
+                                                <span class="cab-type-icon">🚙</span>
+                                                <span class="cab-type-name">SUV</span>
+                                                <span class="cab-type-price">From ₹18/km</span>
+                                            </div>
+                                        </div>
+                                        <input type="hidden" id="cab_type" value="Mini" />
+                                    </div>
+
+                                    <button type="submit" class="btn btn-primary w-100 justify-center"
+                                        style="padding:13px;font-size:.95rem;margin-top:6px;" id="bookBtn">
+                                        🚖 Confirm Booking
+                                    </button>
+
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- RIGHT: Map + Info -->
+                    <div class="map-panel">
+                        <div class="live-map-badge">
+                            <div class="map-pin-pulse"></div>
+                            Live Map View
+                        </div>
+
+                        <div class="map-container" style="height:380px;">
+                            <iframe id="mapFrame" class="map-frame"
+                                src="https://www.openstreetmap.org/export/embed.html?bbox=77.4,12.85,77.8,13.15&amp;layer=mapnik"
+                                allowfullscreen loading="lazy" title="Pickup location map"></iframe>
+                            <div class="map-overlay-badge">
+                                <div class="map-pin-pulse"></div>
+                                Bangalore, India
+                            </div>
+                        </div>
+
+                        <!-- Fare Estimate -->
+                        <div class="fare-estimate">
+                            <div>
+                                <div class="fare-label">Estimated Fare</div>
+                                <div class="fare-value" id="fareValue">₹—</div>
+                                <div class="fare-note">Based on cab type · Final fare may vary</div>
+                            </div>
+                            <div style="font-size:2.5rem;">🧾</div>
+                        </div>
+
+                        <!-- Availability info -->
+                        <div class="card" style="margin-top:14px;">
+                            <div class="card-body" style="padding:16px;">
+                                <div class="text-sm fw-700 mb-8">🚦 Driver Availability</div>
+                                <div id="availableDrivers" style="display:flex;flex-direction:column;gap:8px;"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <script src="db.js"></script>
+    <script src="auth.js"></script>
+    <script src="sidebar.js"></script>
+    <script>
+        let selectedCabType = 'Mini';
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const user = Auth.requireAuth(['user', 'admin']);
+            if (!user) return;
+
+            Sidebar.render();
+            Sidebar.renderTopbar('Book a Cab');
+
+            document.getElementById('customer_name').value = user.name;
+            document.getElementById('phone').value = user.phone;
+
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('booking_date').value = today;
+            document.getElementById('booking_date').min = today;
+
+            updateFareEstimate();
+            renderAvailableDrivers();
+
+            // Animate map when location typed
+            let debounceTimer;
+            document.getElementById('pickup_location').addEventListener('input', (e) => {
+                clearTimeout(debounceTimer);
+                debounceTimer = setTimeout(() => updateMap(e.target.value), 800);
+            });
+
+            document.getElementById('bookingForm').addEventListener('submit', (e) => {
+                e.preventDefault();
+                const alertBox = document.getElementById('alertBox');
+                alertBox.style.display = 'none';
+
+                const pickup = document.getElementById('pickup_location').value.trim();
+                const drop = document.getElementById('drop_location').value.trim();
+                const date = document.getElementById('booking_date').value;
+
+                if (!pickup || !drop || !date) {
+                    alertBox.className = 'alert alert-danger';
+                    alertBox.textContent = '⚠️ Please fill in all required fields.';
+                    alertBox.style.display = 'flex';
+                    return;
+                }
+
+                const btn = document.getElementById('bookBtn');
+                btn.textContent = '⌛ Booking…';
+                btn.disabled = true;
+
+                const booking = DB.create('bookings', {
+                    customer_name: user.name,
+                    phone: user.phone,
+                    pickup_location: pickup,
+                    drop_location: drop,
+                    cab_number: '',
+                    driver_name: '',
+                    booking_date: date,
+                    cab_type_pref: selectedCabType,
+                    status: 'Pending',
+                    user_id: user.id,
+                });
+
+                setTimeout(() => {
+                    window.location.href = `booking-confirmation.html?id=${booking.id}`;
+                }, 400);
+            });
+        });
+
+        function selectCabType(el, type) {
+            document.querySelectorAll('.cab-type-option').forEach(o => o.classList.remove('selected'));
+            el.classList.add('selected');
+            selectedCabType = type;
+            document.getElementById('cab_type').value = type;
+            updateFareEstimate();
+        }
+
+        function updateFareEstimate() {
+            const rates = { Mini: '₹80 – ₹150', Sedan: '₹120 – ₹220', SUV: '₹180 – ₹320' };
+            document.getElementById('fareValue').textContent = rates[selectedCabType] || '₹—';
+        }
+
+        function updateMap(location) {
+            if (!location || location.length < 3) return;
+            // Use Nominatim to geocode and update the map view
+            const encoded = encodeURIComponent(location + ', India');
+            fetch(`https://nominatim.openstreetmap.org/search?q=${encoded}&format=json&limit=1`)
+                .then(r => r.json())
+                .then(data => {
+                    if (data && data.length > 0) {
+                        const { lat, lon } = data[0];
+                        const delta = 0.05;
+                        const src = `https://www.openstreetmap.org/export/embed.html?bbox=${lon - delta},${lat - delta},${parseFloat(lon) + delta},${parseFloat(lat) + delta}&layer=mapnik&marker=${lat},${lon}`;
+                        document.getElementById('mapFrame').src = src;
+                        document.querySelector('.map-overlay-badge').innerHTML =
+                            `<div class="map-pin-pulse"></div> ${data[0].display_name.split(',').slice(0, 2).join(', ')}`;
+                    }
+                }).catch(() => { });
+        }
+
+        function renderAvailableDrivers() {
+            const drivers = DB.find('drivers', d => d.status === 'Available');
+            const el = document.getElementById('availableDrivers');
+            if (!drivers.length) {
+                el.innerHTML = '<span class="text-sm text-muted">No drivers available right now</span>';
+                return;
+            }
+            el.innerHTML = drivers.slice(0, 3).map(d => `
+        <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border-light);">
+          <div style="width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,#10b981,#059669);
+              display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:.85rem;flex-shrink:0;">
+            ${d.driver_name.charAt(0)}
+          </div>
+          <div style="flex:1;min-width:0;">
+            <div class="fw-600 text-sm" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${d.driver_name}</div>
+            <div class="text-xs text-muted">${d.cab_number || 'No cab assigned'}</div>
+          </div>
+          <span class="badge badge-available">Available</span>
+        </div>
+      `).join('') + (drivers.length > 3 ? `<div class="text-xs text-muted mt-8">+${drivers.length - 3} more available</div>` : '');
+        }
+    </script>
+</body>
+
+</html>

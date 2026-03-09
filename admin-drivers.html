@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CabEase — Manage Drivers</title>
+    <meta name="description" content="Admin page to add and manage cab drivers" />
+    <link rel="stylesheet" href="style.css" />
+</head>
+
+<body>
+    <div class="app-shell">
+        <aside id="sidebar"></aside>
+        <div class="main-content">
+            <header id="topbar"></header>
+            <main class="page-body">
+                <div class="section-header">
+                    <h2 class="section-title">Manage Drivers</h2>
+                    <button class="btn btn-primary" onclick="openModal()">+ Add Driver</button>
+                </div>
+
+                <div class="card">
+                    <div class="table-wrapper">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>Driver Name</th>
+                                    <th>Phone</th>
+                                    <th>License No.</th>
+                                    <th>Cab Number</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="driversBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <!-- Add/Edit Driver Modal -->
+    <div class="modal-overlay" id="driverModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 class="modal-title" id="modalTitle">Add Driver</h3>
+                <button class="modal-close" onclick="closeModal()">✕</button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="editId" />
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="driver_name">Driver Name <span style="color:var(--danger)">*</span></label>
+                        <input type="text" id="driver_name" placeholder="Full name" />
+                    </div>
+                    <div class="form-group">
+                        <label for="phone">Phone <span style="color:var(--danger)">*</span></label>
+                        <input type="text" id="phone" placeholder="10-digit number" />
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="license_no">License Number <span style="color:var(--danger)">*</span></label>
+                        <input type="text" id="license_no" placeholder="e.g. DL012345" />
+                    </div>
+                    <div class="form-group">
+                        <label for="cab_number">Cab Number</label>
+                        <select id="cab_number">
+                            <option value="">— Select Cab —</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="status">Status</label>
+                    <select id="status">
+                        <option value="Available">Available</option>
+                        <option value="Busy">Busy</option>
+                    </select>
+                </div>
+                <div id="modalAlert" class="alert" style="display:none;"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline" onclick="closeModal()">Cancel</button>
+                <button class="btn btn-primary" onclick="saveDriver()">💾 Save Driver</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="db.js"></script>
+    <script src="auth.js"></script>
+    <script src="sidebar.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            Auth.requireAuth('admin');
+            Sidebar.render();
+            Sidebar.renderTopbar('Manage Drivers');
+            renderTable();
+        });
+
+        function renderTable() {
+            const drivers = DB.getAll('drivers');
+            const tbody = document.getElementById('driversBody');
+
+            if (!drivers.length) {
+                tbody.innerHTML = '<tr class="empty-row"><td colspan="7">No drivers found. Add your first driver!</td></tr>';
+                return;
+            }
+
+            const statusBadge = s => `<span class="badge badge-${s === 'Available' ? 'available' : 'busy'}">${s}</span>`;
+
+            tbody.innerHTML = drivers.map((d, i) => `
+        <tr>
+          <td class="text-muted text-sm">${i + 1}</td>
+          <td class="fw-600">${d.driver_name}</td>
+          <td class="text-muted">${d.phone}</td>
+          <td style="font-family:monospace;">${d.license_no}</td>
+          <td>${d.cab_number || '<span class="text-muted">—</span>'}</td>
+          <td>${statusBadge(d.status)}</td>
+          <td>
+            <button class="btn btn-sm btn-outline" onclick="openEditModal('${d.id}')">✏️ Edit</button>
+            <button class="btn btn-sm btn-danger" onclick="deleteDriver('${d.id}')" style="margin-left:6px;">🗑</button>
+          </td>
+        </tr>
+      `).join('');
+        }
+
+        function populateCabs(selected = '') {
+            const cabs = DB.getAll('cabs');
+            document.getElementById('cab_number').innerHTML =
+                '<option value="">— Select Cab —</option>' +
+                cabs.map(c => `<option value="${c.cab_number}" ${c.cab_number === selected ? 'selected' : ''}>${c.cab_number} (${c.cab_type})</option>`).join('');
+        }
+
+        function openModal() {
+            document.getElementById('editId').value = '';
+            document.getElementById('driver_name').value = '';
+            document.getElementById('phone').value = '';
+            document.getElementById('license_no').value = '';
+            document.getElementById('status').value = 'Available';
+            document.getElementById('modalTitle').textContent = 'Add Driver';
+            document.getElementById('modalAlert').style.display = 'none';
+            populateCabs();
+            document.getElementById('driverModal').classList.add('open');
+        }
+
+        function openEditModal(id) {
+            const d = DB.getById('drivers', id);
+            if (!d) return;
+            document.getElementById('editId').value = d.id;
+            document.getElementById('driver_name').value = d.driver_name;
+            document.getElementById('phone').value = d.phone;
+            document.getElementById('license_no').value = d.license_no;
+            document.getElementById('status').value = d.status;
+            document.getElementById('modalTitle').textContent = 'Edit Driver';
+            document.getElementById('modalAlert').style.display = 'none';
+            populateCabs(d.cab_number);
+            document.getElementById('driverModal').classList.add('open');
+        }
+
+        function closeModal() { document.getElementById('driverModal').classList.remove('open'); }
+
+        function saveDriver() {
+            const id = document.getElementById('editId').value;
+            const driver_name = document.getElementById('driver_name').value.trim();
+            const phone = document.getElementById('phone').value.trim();
+            const license_no = document.getElementById('license_no').value.trim();
+            const cab_number = document.getElementById('cab_number').value;
+            const status = document.getElementById('status').value;
+
+            if (!driver_name || !phone || !license_no) {
+                const a = document.getElementById('modalAlert');
+                a.className = 'alert alert-danger';
+                a.textContent = 'Driver Name, Phone, and License are required.';
+                a.style.display = 'flex';
+                return;
+            }
+
+            if (id) {
+                DB.update('drivers', id, { driver_name, phone, license_no, cab_number, status });
+            } else {
+                DB.create('drivers', { driver_name, phone, license_no, cab_number, status });
+            }
+            closeModal();
+            renderTable();
+        }
+
+        function deleteDriver(id) {
+            if (!confirm('Delete this driver?')) return;
+            DB.remove('drivers', id);
+            renderTable();
+        }
+
+        document.getElementById('driverModal').addEventListener('click', e => { if (e.target === e.currentTarget) closeModal(); });
+    </script>
+</body>
+
+</html>

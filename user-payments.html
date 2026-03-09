@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CabEase — My Payments</title>
+    <meta name="description" content="Manage your payments on CabEase" />
+    <link rel="stylesheet" href="style.css" />
+</head>
+
+<body>
+    <div class="app-shell">
+        <aside id="sidebar"></aside>
+        <div class="main-content">
+            <header id="topbar"></header>
+            <main class="page-body">
+
+                <div class="section-header">
+                    <h2 class="section-title">Make a Payment</h2>
+                </div>
+
+                <div style="max-width: 600px;">
+                    <div class="card">
+                        <div class="card-body">
+                            <div id="alertBox" class="alert" style="display:none;"></div>
+
+                            <div class="form-group">
+                                <label>Select Unpaid Ride</label>
+                                <select id="bookingSelect" class="w-100" style="padding:12px;font-size:.95rem;">
+                                    <option value="">— Loading —</option>
+                                </select>
+                            </div>
+
+                            <div id="paymentDetails" style="display:none;margin-top:24px;">
+                                <div
+                                    style="background:var(--bg-2);border-radius:12px;padding:20px;border:1px solid var(--border);margin-bottom:24px;">
+                                    <div
+                                        style="display:flex;justify-content:space-between;margin-bottom:12px;font-size:.9rem;">
+                                        <span class="text-muted fw-600">Fare Amount</span>
+                                        <span class="fw-800" id="fareLabel"
+                                            style="font-size:1.1rem;color:var(--text);">₹0</span>
+                                    </div>
+                                    <div
+                                        style="display:flex;justify-content:space-between;font-size:.9rem;padding-top:12px;border-top:1px dashed var(--border);">
+                                        <span class="text-muted fw-600">Total Payable</span>
+                                        <span class="fw-900" id="totalLabel"
+                                            style="font-size:1.3rem;color:var(--primary);">₹0</span>
+                                    </div>
+                                </div>
+
+                                <label>Payment Method</label>
+                                <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:24px;">
+                                    <label class="payment-method-card selected">
+                                        <input type="radio" name="pay_mode" value="Online" checked />
+                                        <span style="font-size:1.5rem;">💳</span>
+                                        <span class="fw-700 text-sm">Online / UPI</span>
+                                    </label>
+                                    <label class="payment-method-card">
+                                        <input type="radio" name="pay_mode" value="Cash" />
+                                        <span style="font-size:1.5rem;">💵</span>
+                                        <span class="fw-700 text-sm">Cash to Driver</span>
+                                    </label>
+                                </div>
+
+                                <button class="btn btn-primary w-100 justify-center" id="payBtn"
+                                    style="padding:14px;font-size:1rem;">
+                                    Process Payment
+                                </button>
+                            </div>
+
+                        </div>
+                    </div>
+                </div>
+
+            </main>
+        </div>
+    </div>
+
+    <script src="db.js"></script>
+    <script src="auth.js"></script>
+    <script src="sidebar.js"></script>
+    <script>
+        let activeBookings = [];
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const user = Auth.requireAuth(['user', 'admin']);
+            if (!user) return;
+            Sidebar.render();
+            Sidebar.renderTopbar('My Payments');
+
+            loadUnpaidBookings(user);
+
+            // Handle query param for deep linking
+            const params = new URLSearchParams(window.location.search);
+            const bookingId = params.get('booking');
+            if (bookingId) {
+                setTimeout(() => {
+                    const select = document.getElementById('bookingSelect');
+                    select.value = bookingId;
+                    select.dispatchEvent(new Event('change'));
+                }, 100);
+            }
+
+            // Payment method UI toggle
+            document.querySelectorAll('input[name="pay_mode"]').forEach(radio => {
+                radio.addEventListener('change', (e) => {
+                    document.querySelectorAll('.payment-method-card').forEach(c => c.classList.remove('selected'));
+                    e.target.closest('.payment-method-card').classList.add('selected');
+                });
+            });
+
+            document.getElementById('bookingSelect').addEventListener('change', (e) => {
+                const id = e.target.value;
+                const detailsObj = document.getElementById('paymentDetails');
+                if (!id) {
+                    detailsObj.style.display = 'none';
+                    return;
+                }
+
+                const b = activeBookings.find(x => x.id === id);
+                // Gen a realistic fare based on cab type (since we don't have distance)
+                const baseRates = { Mini: 150, Sedan: 250, SUV: 400 };
+                const fare = baseRates[b.cab_type_pref] || 200;
+
+                document.getElementById('fareLabel').textContent = `₹${fare}`;
+                document.getElementById('totalLabel').textContent = `₹${fare}`;
+                // Store fare on the button so we can use it
+                document.getElementById('payBtn').dataset.fare = fare;
+                document.getElementById('payBtn').dataset.bookingId = id;
+                detailsObj.style.display = 'block';
+            });
+
+            document.getElementById('payBtn').addEventListener('click', (e) => {
+                const btn = e.target;
+                const fare = Number(btn.dataset.fare);
+                const bookingId = btn.dataset.bookingId;
+                const mode = document.querySelector('input[name="pay_mode"]:checked').value;
+                const alertBox = document.getElementById('alertBox');
+
+                btn.disabled = true;
+                btn.textContent = 'Processing...';
+
+                setTimeout(() => {
+                    // Check if payment already exists
+                    let p = DB.findOne('payments', x => x.booking_reference === bookingId);
+                    if (p) {
+                        DB.update('payments', p.id, { payment_mode: mode, payment_status: 'Paid', amount: fare });
+                    } else {
+                        DB.create('payments', {
+                            customer_name: user.name,
+                            booking_reference: bookingId,
+                            amount: fare,
+                            payment_mode: mode,
+                            payment_status: 'Paid'
+                        });
+                    }
+
+                    alertBox.className = 'alert alert-success';
+                    alertBox.textContent = `✅ Payment of ₹${fare} completed successfully via ${mode}.`;
+                    alertBox.style.display = 'flex';
+                    btn.textContent = 'Payment Successful';
+
+                    setTimeout(() => {
+                        window.location.href = 'my-bookings.html';
+                    }, 1500);
+                }, 800);
+            });
+        });
+
+        function loadUnpaidBookings(user) {
+            const select = document.getElementById('bookingSelect');
+
+            // Get all completed bookings for user
+            const completed = DB.find('bookings', b => (b.user_id === user.id || b.customer_name === user.name) && b.status === 'Completed');
+
+            // Filter out paid ones
+            activeBookings = completed.filter(b => {
+                const p = DB.findOne('payments', pay => pay.booking_reference === b.id);
+                return !p || p.payment_status !== 'Paid';
+            });
+
+            if (!activeBookings.length) {
+                select.innerHTML = '<option value="">✅ All your rides are paid up!</option>';
+                select.disabled = true;
+                return;
+            }
+
+            select.innerHTML = '<option value="">— Select a Ride to Pay —</option>' +
+                activeBookings.map(b => `<option value="${b.id}">${b.pickup_location.split(',')[0]} → ${b.drop_location.split(',')[0]} (${b.booking_date})</option>`).join('');
+        }
+    </script>
+</body>
+
+</html>

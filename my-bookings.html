@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CabEase — My Bookings</title>
+    <meta name="description" content="Track your cab bookings on CabEase" />
+    <link rel="stylesheet" href="style.css" />
+    <style>
+        .booking-card {
+            background: var(--card-bg);
+            border-radius: var(--radius);
+            border: 1px solid var(--border);
+            box-shadow: var(--shadow-card);
+            overflow: hidden;
+            transition: var(--transition);
+            margin-bottom: 20px;
+        }
+
+        .booking-card:hover {
+            box-shadow: 0 4px 20px rgba(16, 185, 129, .12);
+            border-color: rgba(16, 185, 129, .25);
+        }
+
+        .booking-card-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--border);
+            background: var(--bg);
+        }
+
+        .booking-card-body {
+            padding: 20px;
+        }
+
+        .route-display {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            margin-bottom: 16px;
+        }
+
+        .route-dot-col {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+            flex-shrink: 0;
+        }
+
+        .route-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+        }
+
+        .route-dot.green {
+            background: #10b981;
+        }
+
+        .route-dot.red {
+            background: #ef4444;
+        }
+
+        .route-line {
+            width: 2px;
+            height: 32px;
+            background: linear-gradient(#10b981, #ef4444);
+            border-radius: 2px;
+        }
+
+        .route-texts {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+        }
+
+        .route-text {
+            font-size: .9rem;
+            font-weight: 700;
+            color: var(--text);
+        }
+
+        .booking-meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 18px;
+            font-size: .82rem;
+            color: var(--text-muted);
+            font-weight: 500;
+        }
+
+        .meta-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .driver-status-panel {
+            background: linear-gradient(135deg, #080e1a, #0d2015);
+            border-radius: 12px;
+            padding: 16px 20px;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            margin-top: 18px;
+            color: #fff;
+        }
+
+        .driver-status-avatar {
+            width: 46px;
+            height: 46px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #10b981, #059669);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 800;
+            font-size: 1.1rem;
+            flex-shrink: 0;
+            box-shadow: 0 4px 12px rgba(16, 185, 129, .3);
+        }
+
+        .driver-status-on-way {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: rgba(16, 185, 129, .15);
+            border-radius: 20px;
+            padding: 4px 12px;
+            font-size: .75rem;
+            font-weight: 700;
+            color: #10b981;
+            border: 1px solid rgba(16, 185, 129, .3);
+        }
+
+        .pay-btn-row {
+            display: flex;
+            gap: 12px;
+            margin-top: 18px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .payment-status-badge {
+            font-size: .78rem;
+            font-weight: 700;
+            padding: 4px 10px;
+            border-radius: 6px;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .payment-status-badge.paid {
+            background: #d1fae5;
+            color: #065f46;
+            border: 1px solid #10b981;
+        }
+
+        .payment-status-badge.pending {
+            background: #fef9c3;
+            color: #854d0e;
+            border: 1px solid #f59e0b;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="app-shell">
+        <aside id="sidebar"></aside>
+        <div class="main-content">
+            <header id="topbar"></header>
+            <main class="page-body">
+                <div class="section-header">
+                    <h2 class="section-title">My Bookings</h2>
+                    <a href="book-cab.html" class="btn btn-primary">+ New Booking</a>
+                </div>
+
+                <div id="bookingsList" style="max-width: 800px;"></div>
+
+            </main>
+        </div>
+    </div>
+
+    <script src="db.js"></script>
+    <script src="auth.js"></script>
+    <script src="sidebar.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const user = Auth.requireAuth(['user', 'admin']);
+            if (!user) return;
+            Sidebar.render();
+            Sidebar.renderTopbar('My Bookings');
+            renderBookings(user);
+        });
+
+        function renderBookings(user) {
+            const bookings = DB.find('bookings', b => b.user_id === user.id || b.customer_name === user.name)
+                .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+            const container = document.getElementById('bookingsList');
+
+            if (!bookings.length) {
+                container.innerHTML = `
+          <div class="card" style="text-align:center;padding:60px 30px;">
+            <div style="font-size:3.5rem;margin-bottom:18px;">🚖</div>
+            <div class="fw-800" style="font-size:1.2rem;margin-bottom:8px;">No bookings yet</div>
+            <div class="text-muted text-sm mb-20">Start your first ride with CabEase!</div>
+            <a href="book-cab.html" class="btn btn-primary" style="padding:10px 24px;">Book a Cab Now</a>
+          </div>
+        `;
+                return;
+            }
+
+            container.innerHTML = bookings.map(b => buildBookingCard(b, user)).join('');
+        }
+
+        function buildBookingCard(b, user) {
+            const statusClass = { Pending: 'pending', Assigned: 'assigned', Completed: 'completed' };
+
+            // Driver status display
+            let driverSection = '';
+            if (b.status === 'Pending') {
+                driverSection = `
+          <div class="driver-status-panel">
+            <div style="font-size:2rem; animation: pulseDot 2s infinite;">⏳</div>
+            <div>
+              <div class="fw-800" style="font-size:.95rem;margin-bottom:3px;">Awaiting Assignment</div>
+              <div style="font-size:.8rem;color:#94a3b8;">Admin is reviewing your booking. A driver will be assigned shortly.</div>
+            </div>
+          </div>
+        `;
+            } else if (b.status === 'Assigned' && b.driver_name) {
+                const driver = DB.findOne('drivers', d => d.driver_name === b.driver_name);
+                const initial = b.driver_name.charAt(0).toUpperCase();
+                driverSection = `
+          <div class="driver-status-panel">
+            <div class="driver-status-avatar">${initial}</div>
+            <div style="flex:1;">
+              <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">
+                <span class="fw-800" style="font-size:.95rem;">${b.driver_name}</span>
+                <span class="driver-status-on-way">
+                  <div class="status-dot green pulse"></div> On the Way
+                </span>
+              </div>
+              <div style="font-size:.8rem;color:#94a3b8;font-weight:500;">
+                🚗 ${b.cab_number || 'Cab assigned'} &nbsp;|&nbsp; 📞 ${driver ? driver.phone : 'Contact admin'}
+              </div>
+            </div>
+            <div style="font-size:2.2rem;animation:carDrive 3s ease-in-out infinite;">🚖</div>
+          </div>
+        `;
+            } else if (b.status === 'Completed') {
+                driverSection = `
+          <div class="driver-status-panel" style="background:linear-gradient(135deg,#065f46,#064e3b);border-color:#10b981;">
+            <div style="font-size:2rem;">✅</div>
+            <div>
+              <div class="fw-800" style="font-size:.95rem;margin-bottom:3px;">Ride Completed</div>
+              <div style="font-size:.8rem;color:#6ee7b7;font-weight:500;">
+                Driver: ${b.driver_name || '—'} &nbsp;·&nbsp; Cab: ${b.cab_number || '—'}
+              </div>
+            </div>
+          </div>
+        `;
+            }
+
+            // Payment status
+            let paymentSection = '';
+            if (b.status === 'Completed') {
+                const payment = DB.findOne('payments', p => p.booking_reference === b.id);
+                if (payment && payment.payment_status === 'Paid') {
+                    paymentSection = `
+            <div class="pay-btn-row">
+              <div class="payment-status-badge paid">✓ Paid (₹${payment.amount})</div>
+              <span class="text-xs text-muted">via ${payment.payment_mode}</span>
+            </div>
+          `;
+                } else {
+                    paymentSection = `
+            <div class="pay-btn-row">
+              <div class="payment-status-badge pending">! Payment Pending</div>
+              <a href="user-payments.html?booking=${b.id}" class="btn btn-primary btn-sm" style="padding:6px 14px;">Pay Now</a>
+            </div>
+          `;
+                }
+            }
+
+            return `
+        <div class="booking-card">
+          <div class="booking-card-header">
+            <div style="font-family:monospace;font-size:.8rem;color:var(--text-muted);font-weight:600;">ID: ${b.id}</div>
+            <span class="badge badge-${statusClass[b.status] || 'pending'}">${b.status}</span>
+          </div>
+          <div class="booking-card-body">
+            
+            <div class="route-display">
+              <div class="route-dot-col">
+                <div class="route-dot green"></div>
+                <div class="route-line"></div>
+                <div class="route-dot red"></div>
+              </div>
+              <div class="route-texts">
+                <div class="route-text">${b.pickup_location}</div>
+                <div class="route-text">${b.drop_location}</div>
+              </div>
+            </div>
+
+            <div class="booking-meta">
+              <div class="meta-item">📅 ${b.booking_date}</div>
+              <div class="meta-item">🚘 ${b.cab_type_pref || 'Any type'}</div>
+            </div>
+
+            ${driverSection}
+            ${paymentSection}
+          </div>
+        </div>
+      `;
+        }
+    </script>
+</body>
+
+</html>

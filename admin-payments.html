@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CabEase — Manage Payments</title>
+    <meta name="description" content="Admin page to manage cab booking payments" />
+    <link rel="stylesheet" href="style.css" />
+</head>
+
+<body>
+    <div class="app-shell">
+        <aside id="sidebar"></aside>
+        <div class="main-content">
+            <header id="topbar"></header>
+            <main class="page-body">
+
+                <!-- KPI summary -->
+                <div class="kpi-grid" id="paymentKPIs" style="margin-bottom:24px;"></div>
+
+                <div class="section-header">
+                    <h2 class="section-title">Manage Payments</h2>
+                    <button class="btn btn-primary" onclick="openModal()">+ Add Payment</button>
+                </div>
+
+                <div class="card">
+                    <div class="table-wrapper">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>Customer</th>
+                                    <th>Booking Ref.</th>
+                                    <th>Amount (₹)</th>
+                                    <th>Payment Mode</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="paymentsBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+            </main>
+        </div>
+    </div>
+
+    <!-- Add/Edit Payment Modal -->
+    <div class="modal-overlay" id="paymentModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 class="modal-title" id="modalTitle">Add Payment</h3>
+                <button class="modal-close" onclick="closeModal()">✕</button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="editId" />
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="customer_name">Customer Name <span style="color:var(--danger)">*</span></label>
+                        <input type="text" id="customer_name" placeholder="Full name" />
+                    </div>
+                    <div class="form-group">
+                        <label for="booking_reference">Booking Reference</label>
+                        <select id="booking_reference">
+                            <option value="">— Select Booking —</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="amount">Amount (₹) <span style="color:var(--danger)">*</span></label>
+                        <input type="number" id="amount" placeholder="e.g. 350" min="0" />
+                    </div>
+                    <div class="form-group">
+                        <label for="payment_mode">Payment Mode</label>
+                        <select id="payment_mode">
+                            <option value="Cash">Cash</option>
+                            <option value="Online">Online</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="payment_status">Payment Status</label>
+                    <select id="payment_status">
+                        <option value="Pending">Pending</option>
+                        <option value="Paid">Paid</option>
+                    </select>
+                </div>
+                <div id="modalAlert" class="alert" style="display:none;"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline" onclick="closeModal()">Cancel</button>
+                <button class="btn btn-primary" onclick="savePayment()">💾 Save Payment</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="db.js"></script>
+    <script src="auth.js"></script>
+    <script src="sidebar.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            Auth.requireAuth('admin');
+            Sidebar.render();
+            Sidebar.renderTopbar('Manage Payments');
+            renderKPIs();
+            renderTable();
+        });
+
+        function renderKPIs() {
+            const payments = DB.getAll('payments');
+            const total = payments.reduce((s, p) => s + Number(p.amount || 0), 0);
+            const collected = payments.filter(p => p.payment_status === 'Paid').reduce((s, p) => s + Number(p.amount || 0), 0);
+            const pending = payments.filter(p => p.payment_status === 'Pending').length;
+
+            document.getElementById('paymentKPIs').innerHTML = `
+        <div class="kpi-card">
+          <div class="kpi-icon purple">💳</div>
+          <div>
+            <div class="kpi-value">${payments.length}</div>
+            <div class="kpi-label">Total Records</div>
+          </div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-icon green">✅</div>
+          <div>
+            <div class="kpi-value">₹${collected.toLocaleString('en-IN')}</div>
+            <div class="kpi-label">Amount Collected</div>
+          </div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-icon orange">⏳</div>
+          <div>
+            <div class="kpi-value">${pending}</div>
+            <div class="kpi-label">Pending Payments</div>
+          </div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-icon blue">💰</div>
+          <div>
+            <div class="kpi-value">₹${total.toLocaleString('en-IN')}</div>
+            <div class="kpi-label">Total Billed</div>
+          </div>
+        </div>
+      `;
+        }
+
+        function renderTable() {
+            const payments = DB.getAll('payments');
+            const tbody = document.getElementById('paymentsBody');
+
+            if (!payments.length) {
+                tbody.innerHTML = '<tr class="empty-row"><td colspan="7">No payment records found.</td></tr>';
+                return;
+            }
+
+            const modeBadge = m => `<span class="badge badge-${m === 'Online' ? 'online' : 'cash'}">${m}</span>`;
+            const statusBadge = s => `<span class="badge badge-${s === 'Paid' ? 'paid' : 'pending'}">${s}</span>`;
+
+            tbody.innerHTML = payments.map((p, i) => `
+        <tr>
+          <td class="text-muted text-sm">${i + 1}</td>
+          <td class="fw-600">${p.customer_name}</td>
+          <td class="text-muted" style="font-family:monospace;font-size:.75rem;" title="${p.booking_reference}">
+            ${p.booking_reference ? p.booking_reference.substring(0, 10) + '…' : '—'}
+          </td>
+          <td class="fw-600">₹${Number(p.amount || 0).toLocaleString('en-IN')}</td>
+          <td>${modeBadge(p.payment_mode)}</td>
+          <td>${statusBadge(p.payment_status)}</td>
+          <td>
+            ${p.payment_status === 'Pending'
+                    ? `<button class="btn btn-sm btn-success" onclick="markPaid('${p.id}')">✅ Mark Paid</button>`
+                    : `<span class="text-muted text-sm">Paid</span>`
+                }
+            <button class="btn btn-sm btn-outline" onclick="openEditModal('${p.id}')" style="margin-left:6px;">✏️</button>
+            <button class="btn btn-sm btn-danger" onclick="deletePayment('${p.id}')" style="margin-left:6px;">🗑</button>
+          </td>
+        </tr>
+      `).join('');
+        }
+
+        function populateBookings(selected = '') {
+            const bookings = DB.getAll('bookings');
+            document.getElementById('booking_reference').innerHTML =
+                '<option value="">— Select Booking —</option>' +
+                bookings.map(b => `<option value="${b.id}" ${b.id === selected ? 'selected' : ''}>${b.customer_name} — ${b.booking_date} (${b.status})</option>`).join('');
+        }
+
+        function openModal() {
+            document.getElementById('editId').value = '';
+            document.getElementById('customer_name').value = '';
+            document.getElementById('amount').value = '';
+            document.getElementById('payment_mode').value = 'Cash';
+            document.getElementById('payment_status').value = 'Pending';
+            document.getElementById('modalTitle').textContent = 'Add Payment';
+            document.getElementById('modalAlert').style.display = 'none';
+            populateBookings();
+            document.getElementById('paymentModal').classList.add('open');
+        }
+
+        function openEditModal(id) {
+            const p = DB.getById('payments', id);
+            if (!p) return;
+            document.getElementById('editId').value = p.id;
+            document.getElementById('customer_name').value = p.customer_name;
+            document.getElementById('amount').value = p.amount;
+            document.getElementById('payment_mode').value = p.payment_mode;
+            document.getElementById('payment_status').value = p.payment_status;
+            document.getElementById('modalTitle').textContent = 'Edit Payment';
+            document.getElementById('modalAlert').style.display = 'none';
+            populateBookings(p.booking_reference);
+            document.getElementById('paymentModal').classList.add('open');
+        }
+
+        function closeModal() { document.getElementById('paymentModal').classList.remove('open'); }
+
+        function savePayment() {
+            const id = document.getElementById('editId').value;
+            const customer_name = document.getElementById('customer_name').value.trim();
+            const booking_reference = document.getElementById('booking_reference').value;
+            const amount = document.getElementById('amount').value;
+            const payment_mode = document.getElementById('payment_mode').value;
+            const payment_status = document.getElementById('payment_status').value;
+
+            if (!customer_name || !amount) {
+                const a = document.getElementById('modalAlert');
+                a.className = 'alert alert-danger';
+                a.textContent = 'Customer name and amount are required.';
+                a.style.display = 'flex';
+                return;
+            }
+
+            if (id) {
+                DB.update('payments', id, { customer_name, booking_reference, amount: Number(amount), payment_mode, payment_status });
+            } else {
+                DB.create('payments', { customer_name, booking_reference, amount: Number(amount), payment_mode, payment_status });
+            }
+            closeModal();
+            renderKPIs();
+            renderTable();
+        }
+
+        function markPaid(id) {
+            DB.update('payments', id, { payment_status: 'Paid' });
+            renderKPIs();
+            renderTable();
+        }
+
+        function deletePayment(id) {
+            if (!confirm('Delete this payment record?')) return;
+            DB.remove('payments', id);
+            renderKPIs();
+            renderTable();
+        }
+
+        document.getElementById('paymentModal').addEventListener('click', e => { if (e.target === e.currentTarget) closeModal(); });
+    </script>
+</body>
+
+</html>

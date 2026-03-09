@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CabEase — Booking Confirmed</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+
+<body>
+  <div class="app-shell">
+    <aside id="sidebar"></aside>
+    <div class="main-content">
+      <header id="topbar"></header>
+      <main class="page-body confirm-page">
+        <div class="confirm-card">
+          <div class="confirm-icon">🚕</div>
+          <h2 class="confirm-title">Booking Request Received!</h2>
+          <p class="confirm-sub">Your cab request has been submitted successfully to the admin team. A driver will be
+            assigned to you shortly.</p>
+
+          <div class="confirm-details">
+            <div class="confirm-row">
+              <span class="key">Booking Ref ID</span>
+              <span class="val" id="bookingId"
+                style="font-family:monospace;background:#e2e8f0;padding:2px 8px;border-radius:4px;"></span>
+            </div>
+            <div class="confirm-row">
+              <span class="key">Customer Name</span>
+              <span class="val" id="custName"></span>
+            </div>
+            <div class="confirm-row">
+              <span class="key">Pickup Location</span>
+              <span class="val" id="pickup"></span>
+            </div>
+            <div class="confirm-row">
+              <span class="key">Drop Location</span>
+              <span class="val" id="drop"></span>
+            </div>
+            <div class="confirm-row">
+              <span class="key">Date & Cab</span>
+              <span class="val" id="dateCab"></span>
+            </div>
+            <div class="confirm-row">
+              <span class="key">Current Status</span>
+              <span class="badge badge-pending">Pending Assignment</span>
+            </div>
+          </div>
+
+          <div style="display:flex;gap:12px;justify-content:center;">
+            <a href="my-bookings.html" class="btn btn-primary">Track Ride Status</a>
+            <a href="book-cab.html" class="btn btn-outline">Book Another Cab</a>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <script src="db.js"></script>
+  <script src="auth.js"></script>
+  <script src="sidebar.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      Auth.requireAuth(['user', 'admin']);
+      Sidebar.render();
+      Sidebar.renderTopbar('Booking Confirmation');
+
+      const params = new URLSearchParams(window.location.search);
+      const id = params.get('id');
+      if (!id) { window.location.href = 'book-cab.html'; return; }
+
+      const booking = DB.getById('bookings', id);
+      if (!booking) { alert('Booking not found'); window.location.href = 'book-cab.html'; return; }
+
+      document.getElementById('bookingId').textContent = booking.id;
+      document.getElementById('custName').textContent = booking.customer_name;
+      document.getElementById('pickup').textContent = booking.pickup_location;
+      document.getElementById('drop').textContent = booking.drop_location;
+      document.getElementById('dateCab').textContent = `${booking.booking_date} • ${booking.cab_type_pref}`;
+    });
+  </script>
+</body>
+
+</html>

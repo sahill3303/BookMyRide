@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CabEase — Login</title>
+    <meta name="description" content="Login to CabEase Cab Booking System" />
+    <link rel="stylesheet" href="style.css" />
+</head>
+
+<body>
+    <div class="auth-page">
+        <div class="auth-card">
+            <div class="auth-header">
+                <div class="auth-logo">🚖</div>
+                <h1 class="auth-title">CabEase</h1>
+                <p class="auth-subtitle">Cab Booking Management System</p>
+            </div>
+            <div class="auth-body">
+                <div id="alertBox" class="alert alert-danger" style="display:none;"></div>
+                <form id="loginForm" novalidate>
+                    <div class="form-group">
+                        <label for="email">Email Address</label>
+                        <input type="email" id="email" placeholder="you@example.com" required autocomplete="email" />
+                    </div>
+                    <div class="form-group">
+                        <label for="password">Password</label>
+                        <input type="password" id="password" placeholder="Enter your password" required />
+                    </div>
+                    <button type="submit" class="btn btn-primary w-100 justify-center"
+                        style="margin-top:10px;padding:12px;" id="loginBtn">
+                        Sign In →
+                    </button>
+                </form>
+            </div>
+            <div class="auth-footer">
+                Don't have an account? <a href="register.html">Register here</a>
+                <br style="margin-bottom:8px;" />
+                <div
+                    style="background:#f0faf5;border-radius:8px;padding:10px 14px;margin-top:12px;text-align:left;font-size:.8rem;">
+                    <span style="color:var(--text-muted);font-weight:700;">🔑 Admin Demo</span><br />
+                    <span style="color:var(--text);">admin@cab.com &nbsp;/&nbsp; admin123</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="db.js"></script>
+    <script src="auth.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            Auth.redirectIfLoggedIn();
+            document.getElementById('loginForm').addEventListener('submit', (e) => {
+                e.preventDefault();
+                const email = document.getElementById('email').value.trim();
+                const password = document.getElementById('password').value;
+                const alertBox = document.getElementById('alertBox');
+                const btn = document.getElementById('loginBtn');
+
+                alertBox.style.display = 'none';
+                btn.textContent = 'Signing in…';
+                btn.disabled = true;
+
+                setTimeout(() => {
+                    const result = Auth.login(email, password);
+                    if (result.success) {
+                        const user = result.user;
+                        window.location.href = user.role === 'admin' ? 'admin-dashboard.html' : 'book-cab.html';
+                    } else {
+                        alertBox.textContent = result.message;
+                        alertBox.style.display = 'flex';
+                        btn.textContent = 'Sign In →';
+                        btn.disabled = false;
+                    }
+                }, 300);
+            });
+        });
+    </script>
+</body>
+
+</html>
+
+
+<!-- comments -->
