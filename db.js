@@ -81,17 +81,17 @@ const DB = (() => {
 
     // Sample drivers
     const drivers = [
-      { driver_name: 'Rajan Kumar',   phone: '9876543210', license_no: 'DL012345', cab_number: 'KA01AB1234', status: 'Available' },
-      { driver_name: 'Suresh Patil',  phone: '9845001122', license_no: 'MH567890', cab_number: 'MH02CD5678', status: 'Available' },
-      { driver_name: 'Vikram Singh',  phone: '9123456789', license_no: 'UP334455', cab_number: 'UP32EF9012', status: 'Busy' },
+      { driver_name: 'Rajan Kumar', phone: '9876543210', license_no: 'DL012345', cab_number: 'KA01AB1234', status: 'Available' },
+      { driver_name: 'Suresh Patil', phone: '9845001122', license_no: 'MH567890', cab_number: 'MH02CD5678', status: 'Available' },
+      { driver_name: 'Vikram Singh', phone: '9123456789', license_no: 'UP334455', cab_number: 'UP32EF9012', status: 'Busy' },
     ];
     drivers.forEach(d => create('drivers', d));
 
     // Sample cabs
     const cabs = [
-      { cab_number: 'KA01AB1234', cab_type: 'Mini',  availability: 'Available' },
+      { cab_number: 'KA01AB1234', cab_type: 'Mini', availability: 'Available' },
       { cab_number: 'MH02CD5678', cab_type: 'Sedan', availability: 'Available' },
-      { cab_number: 'UP32EF9012', cab_type: 'SUV',   availability: 'Not Available' },
+      { cab_number: 'UP32EF9012', cab_type: 'SUV', availability: 'Not Available' },
       { cab_number: 'DL04GH3456', cab_type: 'Sedan', availability: 'Available' },
     ];
     cabs.forEach(c => create('cabs', c));
@@ -99,7 +99,7 @@ const DB = (() => {
     // Sample bookings
     const bookings = [
       { customer_name: 'Priya Sharma', phone: '9001122334', pickup_location: 'MG Road, Bangalore', drop_location: 'Indiranagar, Bangalore', cab_number: 'KA01AB1234', driver_name: 'Rajan Kumar', booking_date: '2026-02-25', status: 'Completed' },
-      { customer_name: 'Arjun Mehta',  phone: '9112233445', pickup_location: 'Andheri, Mumbai',     drop_location: 'Bandra, Mumbai',            cab_number: '',             driver_name: '',           booking_date: '2026-02-26', status: 'Pending' },
+      { customer_name: 'Arjun Mehta', phone: '9112233445', pickup_location: 'Andheri, Mumbai', drop_location: 'Bandra, Mumbai', cab_number: '', driver_name: '', booking_date: '2026-02-26', status: 'Pending' },
     ];
     bookings.forEach(b => create('bookings', b));
 
@@ -126,3 +126,10 @@ const DB = (() => {
 
 // Auto-seed on first load
 document.addEventListener('DOMContentLoaded', () => DB.seed());
+
+
+//comment
+//comment
+//comment
+//comment
+
